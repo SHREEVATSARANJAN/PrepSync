@@ -4,11 +4,17 @@ import { DOMAIN_LABELS, DIFFICULTY_LABELS } from '@prepsync/shared';
 
 // ===== Groq client =====
 
+const apiKey = process.env.GROQ_API_KEY;
+
+if (!apiKey) {
+  throw new Error('GROQ_API_KEY is missing from backend environment variables');
+}
+
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || '',
+  apiKey,
 });
 
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'openai/gpt-oss-120b';
 
 // ===== System prompts =====
 

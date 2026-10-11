@@ -1,11 +1,18 @@
-import { Request, Response, NextFunction } from 'express';
+import {
+  Request,
+  Response as ExpressResponse,
+  NextFunction,
+} from 'express';
 import { ApiError } from '../middleware/error';
 
 // Wandbox API — free, no API key required
 const WANDBOX_URL = 'https://wandbox.org/api/compile.json';
 
 // Map language names to Wandbox compiler identifiers
-const COMPILER_MAP: Record<string, { compiler: string; filename: string }> = {
+const COMPILER_MAP: Record<
+  string,
+  { compiler: string; filename: string }
+> = {
   javascript: { compiler: 'nodejs-20.17.0', filename: 'main.js' },
   typescript: { compiler: 'typescript-5.6.2', filename: 'main.ts' },
   python: { compiler: 'cpython-3.14.0', filename: 'main.py' },
@@ -19,12 +26,15 @@ const COMPILER_MAP: Record<string, { compiler: string; filename: string }> = {
 // ===== POST /code/submit — Submit code for execution =====
 export async function submitCode(
   req: Request,
-  res: Response,
+  res: ExpressResponse,
   next: NextFunction,
 ): Promise<void> {
   try {
     const user = req.user;
-    if (!user) throw ApiError.unauthorized();
+
+    if (!user) {
+      throw ApiError.unauthorized();
+    }
 
     const { sourceCode, language, stdin } = req.body as {
       sourceCode: string;
@@ -32,14 +42,17 @@ export async function submitCode(
       stdin?: string;
     };
 
-    if (!sourceCode?.trim()) throw ApiError.badRequest('Source code is required');
+    if (!sourceCode?.trim()) {
+      throw ApiError.badRequest('Source code is required');
+    }
+
     if (!language || !COMPILER_MAP[language]) {
       throw ApiError.badRequest('Unsupported language');
     }
 
     const { compiler } = COMPILER_MAP[language];
 
-    const wandboxRes = await fetch(WANDBOX_URL, {
+    const wandboxRes: globalThis.Response = await globalThis.fetch(WANDBOX_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -53,22 +66,28 @@ export async function submitCode(
     });
 
     if (!wandboxRes.ok) {
-      const text = await wandboxRes.text().catch(() => 'Unknown error');
-      throw ApiError.badRequest(`Code execution service error: ${wandboxRes.status} ${text}`);
+      const errorText = await wandboxRes
+        .text()
+        .catch(() => 'Unknown error');
+
+      throw ApiError.badRequest(
+        `Code execution service error: ${wandboxRes.status} ${errorText}`,
+      );
     }
 
     const result = (await wandboxRes.json()) as any;
 
     // Wandbox response fields:
-    //   status: exit code (0 = success)
-    //   signal: signal name if killed
-    //   compiler_output / compiler_error / compiler_message
-    //   program_output / program_error / program_message
+    // status: exit code (0 = success)
+    // signal: signal name if killed
+    // compiler_output / compiler_error / compiler_message
+    // program_output / program_error / program_message
 
     const exitCode = Number(result.status ?? -1);
     const isSuccess = exitCode === 0 && !result.signal;
 
     let statusDesc = 'Unknown';
+
     if (result.signal) {
       statusDesc = `Runtime Error (${result.signal})`;
     } else if (result.compiler_error) {
@@ -80,11 +99,12 @@ export async function submitCode(
     }
 
     res.json({
-      token: '', // Wandbox is synchronous, no token needed
+      token: '',
       status: statusDesc,
       stdout: result.program_output || '',
       stderr: result.program_error || '',
-      compileOutput: result.compiler_message || result.compiler_output || '',
+      compileOutput:
+        result.compiler_message || result.compiler_output || '',
       time: null,
       memory: null,
     });
@@ -94,17 +114,19 @@ export async function submitCode(
 }
 
 // ===== GET /code/status/:token — Poll for execution results =====
-// Wandbox is synchronous so this just returns a completed status
 export async function getSubmissionStatus(
   req: Request,
-  res: Response,
+  res: ExpressResponse,
   next: NextFunction,
 ): Promise<void> {
   try {
     const user = req.user;
-    if (!user) throw ApiError.unauthorized();
 
-    // With Wandbox, results are returned synchronously in submitCode.
+    if (!user) {
+      throw ApiError.unauthorized();
+    }
+
+    // Wandbox returns execution results synchronously.
     // This endpoint is kept for API compatibility.
     res.json({
       token: req.params.token || '',
@@ -123,15 +145,17 @@ export async function getSubmissionStatus(
 // ===== GET /code/languages — List available languages =====
 export async function getLanguages(
   _req: Request,
-  res: Response,
+  res: ExpressResponse,
   next: NextFunction,
 ): Promise<void> {
   try {
     res.json({
-      languages: Object.entries(COMPILER_MAP).map(([name, { compiler }]) => ({
-        name,
-        id: compiler,
-      })),
+      languages: Object.entries(COMPILER_MAP).map(
+        ([name, { compiler }]) => ({
+          name,
+          id: compiler,
+        }),
+      ),
     });
   } catch (error) {
     next(error);

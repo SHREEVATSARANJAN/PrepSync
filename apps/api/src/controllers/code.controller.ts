@@ -52,7 +52,7 @@ export async function submitCode(
 
     const { compiler } = COMPILER_MAP[language];
 
-    const wandboxRes: globalThis.Response = await globalThis.fetch(WANDBOX_URL, {
+       const wandboxRes = (await globalThis.fetch(WANDBOX_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -63,7 +63,12 @@ export async function submitCode(
         'runtime-option-raw': '',
         save: false,
       }),
-    });
+    })) as unknown as {
+      ok: boolean;
+      status: number;
+      text: () => Promise<string>;
+      json: () => Promise<any>;
+    };
 
     if (!wandboxRes.ok) {
       const errorText = await wandboxRes

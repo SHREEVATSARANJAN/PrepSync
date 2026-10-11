@@ -9,20 +9,24 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     return;
   }
 
-  const response = await fetch(BREVO_API_URL, {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'api-key': BREVO_API_KEY,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      sender: { name: FROM_NAME, email: FROM_EMAIL },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
-  });
+ const response = (await globalThis.fetch(BREVO_API_URL, {
+  method: 'POST',
+  headers: {
+    'accept': 'application/json',
+    'api-key': BREVO_API_KEY,
+    'content-type': 'application/json',
+  },
+  body: JSON.stringify({
+    sender: { name: FROM_NAME, email: FROM_EMAIL },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  }),
+})) as unknown as {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+};
 
   if (!response.ok) {
     const errorBody = await response.text();
